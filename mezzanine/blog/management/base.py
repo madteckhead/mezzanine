@@ -4,6 +4,7 @@ from urlparse import urlparse
 from django.contrib.redirects.models import Redirect
 from django.contrib.sites.models import Site
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.encoding import force_text
 from django.utils.html import strip_tags
 
 from mezzanine.blog.models import BlogPost, BlogCategory
@@ -64,9 +65,9 @@ class BaseImporterCommand(BaseCommand):
         if comments is None:
             comments = []
         self.posts.append({
-            "title": title,
+            "title": force_text(title),
             "publish_date": pub_date,
-            "content": content,
+            "content": force_text(content),
             "categories": categories,
             "tags": tags,
             "comments": comments,
@@ -235,7 +236,7 @@ class BaseImporterCommand(BaseCommand):
         """
         for tag in tags:
             keyword = self.trunc(Keyword, prompt, title=tag)
-            keyword, created = Keyword.objects.get_or_create(**keyword)
+            keyword, created = Keyword.objects.get_or_create_iexact(**keyword)
             obj.keywords.add(AssignedKeyword(keyword=keyword))
             if created and verbosity >= 1:
                 print "Imported tag: %s" % keyword

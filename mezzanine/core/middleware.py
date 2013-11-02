@@ -16,6 +16,7 @@ from mezzanine.utils.cache import (cache_key_prefix, nevercache_token,
                                    cache_get, cache_set, cache_installed)
 from mezzanine.utils.device import templates_for_device
 from mezzanine.utils.sites import current_site_id, templates_for_host
+from mezzanine.utils.urls import next_url
 
 
 _deprecated = {
@@ -51,7 +52,7 @@ class AdminLoginInterfaceSelectorMiddleware(object):
                 if login_type == "admin":
                     next = request.get_full_path()
                 else:
-                    next = request.GET.get("next", "/")
+                    next = next_url(request) or "/"
                 return HttpResponseRedirect(next)
             else:
                 return response
@@ -90,8 +91,10 @@ class TemplateForDeviceMiddleware(object):
     """
     def process_template_response(self, request, response):
         if hasattr(response, "template_name"):
-            templates = templates_for_device(request, response.template_name)
-            response.template_name = templates
+            if not isinstance(response.template_name, Template):
+                templates = templates_for_device(request,
+                    response.template_name)
+                response.template_name = templates
         return response
 
 
@@ -101,8 +104,10 @@ class TemplateForHostMiddleware(object):
     """
     def process_template_response(self, request, response):
         if hasattr(response, "template_name"):
-            templates = templates_for_host(request, response.template_name)
-            response.template_name = templates
+            if not isinstance(response.template_name, Template):
+                templates = templates_for_host(request,
+                    response.template_name)
+                response.template_name = templates
         return response
 
 
@@ -140,7 +145,8 @@ class UpdateCacheMiddleware(object):
         # wrapped its contents in, and render only the content
         # enclosed by it, to avoid possible template code injection.
         parts = response.content.split(nevercache_token())
-        if response["content-type"].startswith("text") and len(parts) > 1:
+        content_type = response.get("content-type", "")
+        if content_type.startswith("text") and len(parts) > 1:
             # Restore csrf token from cookie - check the response
             # first as it may be being set for the first time.
             csrf_token = None
@@ -160,8 +166,9 @@ class UpdateCacheMiddleware(object):
                 parts[i] = part
             response.content = "".join(parts)
             response["Content-Length"] = len(response.content)
-            # Required to clear out user messages.
-            request._messages.update(response)
+            if hasattr(request, '_messages'):
+                # Required to clear out user messages.
+                request._messages.update(response)
         return response
 
 
@@ -170,11 +177,6 @@ class FetchFromCacheMiddleware(object):
     Request phase for Mezzanine cache middleware. Return a response
     from cache if found, othwerwise mark the request for updating
     the cache in ``UpdateCacheMiddleware``.
-
-    If the response is served from cache and process_request returns a valid
-    response, Django will not execute the next middlewares, but we really
-    need ``CsrfViewMiddleware`` to run before ``UpdateCacheMiddleware`` to
-    make sure a valid csrf token exist.
     """
 
     def process_request(self, request):
@@ -182,14 +184,17 @@ class FetchFromCacheMiddleware(object):
             not request.user.is_authenticated()):
             cache_key = cache_key_prefix(request) + request.get_full_path()
             response = cache_get(cache_key)
+            # We need to force a csrf token here, as new sessions
+            # won't receieve one on their first request, with cache
+            # middleware running.
+            csrf_mw_name = "django.middleware.csrf.CsrfViewMiddleware"
+            if csrf_mw_name in settings.MIDDLEWARE_CLASSES:
+                csrf_mw = CsrfViewMiddleware()
+                csrf_mw.process_view(request, lambda x: None, None, None)
+                get_token(request)
             if response is None:
                 request._update_cache = True
             else:
-                csrf_mw_name = "django.middleware.csrf.CsrfViewMiddleware"
-                if csrf_mw_name in settings.MIDDLEWARE_CLASSES:
-                    csrf_mw = CsrfViewMiddleware()
-                    csrf_mw.process_view(request, lambda x: None, None, None)
-                    get_token(request)
                 return HttpResponse(response)
 
 

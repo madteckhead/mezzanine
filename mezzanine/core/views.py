@@ -22,6 +22,7 @@ from mezzanine.core.models import Displayable, SitePermission
 from mezzanine.utils.cache import add_cache_bypass
 from mezzanine.utils.views import is_editable, paginate, render, set_cookie
 from mezzanine.utils.sites import has_site_permission
+from mezzanine.utils.urls import next_url
 
 
 def set_device(request, device=""):
@@ -29,7 +30,7 @@ def set_device(request, device=""):
     Sets a device name in a cookie when a user explicitly wants to go
     to the site for a particular device (eg mobile).
     """
-    response = redirect(add_cache_bypass(request.GET.get("next", "/")))
+    response = redirect(add_cache_bypass(next_url(request) or "/"))
     set_cookie(response, "mezzanine-device", device, 60 * 60 * 24 * 365)
     return response
 
@@ -50,7 +51,7 @@ def set_site(request):
             raise PermissionDenied
     request.session["site_id"] = site_id
     admin_url = reverse("admin:index")
-    next = request.GET.get("next", admin_url)
+    next = next_url(request) or admin_url
     # Don't redirect to a change view for an object that won't exist
     # on the selected site - go to its list view instead.
     if next.startswith(admin_url):
@@ -135,7 +136,11 @@ def static_proxy(request):
     protocol = "http" if not request.is_secure() else "https"
     host = protocol + "://" + request.get_host()
     generic_host = "//" + request.get_host()
-    for prefix in (host, generic_host, settings.STATIC_URL):
+    # STATIC_URL often contains host or generic_host, so remove it
+    # first otherwise the replacement loop below won't work.
+    static_url = settings.STATIC_URL.replace(host, "", 1)
+    static_url = static_url.replace(generic_host, "", 1)
+    for prefix in (host, generic_host, static_url, "/"):
         if url.startswith(prefix):
             url = url.replace(prefix, "", 1)
     response = ""

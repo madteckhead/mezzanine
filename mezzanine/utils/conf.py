@@ -66,18 +66,11 @@ def set_dynamic_settings(s):
     for setting in tuple_list_settings:
         s[setting] = list(s[setting])
 
-    if s["DEV_SERVER"]:
-        s["STATICFILES_DIRS"] = list(s.get("STATICFILES_DIRS", []))
-        s["STATICFILES_DIRS"].append(s.pop("STATIC_ROOT"))
-
     # Set up cookie messaging if none defined.
     storage = "django.contrib.messages.storage.cookie.CookieStorage"
     s.setdefault("MESSAGE_STORAGE", storage)
 
     if s["TESTING"]:
-        # Enable accounts when testing so the URLs exist.
-        append("INSTALLED_APPS", "mezzanine.accounts")
-
         # Following bits are work-arounds for some assumptions that
         # Django 1.5's tests make.
 

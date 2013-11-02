@@ -5,6 +5,7 @@ from functools import wraps
 from getpass import getpass, getuser
 from glob import glob
 from contextlib import contextmanager
+from posixpath import join
 
 from fabric.api import env, cd, prefix, sudo as _sudo, run as _run, hide, task
 from fabric.contrib.files import exists, upload_template
@@ -16,7 +17,8 @@ from fabric.colors import yellow, green, blue, red
 ################
 
 conf = {}
-if sys.argv[0].split(os.sep)[-1] == "fab":
+if sys.argv[0].split(os.sep)[-1] in ("fab",             # POSIX
+                                     "fab-script.py"):  # Windows
     # Ensure we import settings from the current dir
     try:
         conf = __import__("settings", globals(), locals(), [], 0).FABRIC
@@ -48,6 +50,9 @@ env.git = env.repo_url.startswith("git") or env.repo_url.endswith(".git")
 env.reqs_path = conf.get("REQUIREMENTS_PATH", None)
 env.gunicorn_port = conf.get("GUNICORN_PORT", 8000)
 env.locale = conf.get("LOCALE", "en_US.UTF-8")
+
+env.secret_key = conf.get("SECRET_KEY", "")
+env.nevercache_key = conf.get("NEVERCACHE_KEY", "")
 
 
 ##################
@@ -116,7 +121,7 @@ def update_changed_requirements():
     Checks for changes in the requirements file across an update,
     and gets new requirements if changes have occurred.
     """
-    reqs_path = os.path.join(env.proj_path, env.reqs_path)
+    reqs_path = join(env.proj_path, env.reqs_path)
     get_reqs = lambda: run("cat %s" % reqs_path, show=False)
     old_reqs = get_reqs() if env.reqs_path else ""
     yield
@@ -203,6 +208,9 @@ def upload_template_and_reload(name):
     """
     template = get_templates()[name]
     local_path = template["local_path"]
+    if not os.path.exists(local_path):
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        local_path = os.path.join(project_root, local_path)
     remote_path = template["remote_path"]
     reload_command = template.get("reload_command")
     owner = template.get("owner")
@@ -310,7 +318,7 @@ def static():
     Returns the live STATIC_ROOT directory.
     """
     return python("from django.conf import settings;"
-                  "print settings.STATIC_ROOT").split("\n")[-1]
+                  "print settings.STATIC_ROOT", show=False).split("\n")[-1]
 
 
 @task
@@ -386,8 +394,8 @@ def create():
         key_file = env.proj_name + ".key"
         if not exists(crt_file) and not exists(key_file):
             try:
-                crt_local, = glob(os.path.join("deploy", "*.crt"))
-                key_local, = glob(os.path.join("deploy", "*.key"))
+                crt_local, = glob(join("deploy", "*.crt"))
+                key_local, = glob(join("deploy", "*.key"))
             except ValueError:
                 parts = (crt_file, key_file, env.live_host)
                 sudo("openssl req -new -x509 -nodes -out %s -keyout %s "
@@ -508,8 +516,8 @@ def rollback():
         with update_changed_requirements():
             update = "git checkout" if env.git else "hg up -C"
             run("%s `cat last.commit`" % update)
-        with cd(os.path.join(static(), "..")):
-            run("tar -xf %s" % os.path.join(env.proj_path, "last.tar"))
+        with cd(join(static(), "..")):
+            run("tar -xf %s" % join(env.proj_path, "last.tar"))
         restore("last.db")
     restart()
 

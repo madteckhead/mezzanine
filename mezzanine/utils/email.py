@@ -6,7 +6,8 @@ from django.template import loader, Context
 from django.utils.http import int_to_base36
 
 from mezzanine.conf import settings
-from mezzanine.utils.urls import admin_url
+from mezzanine.utils.urls import admin_url, next_url
+from mezzanine.conf.context_processors import settings as context_settings
 
 
 def split_addresses(email_string_list):
@@ -27,7 +28,8 @@ def subject_template(template, context):
 
 
 def send_mail_template(subject, template, addr_from, addr_to, context=None,
-                       attachments=None, fail_silently=False):
+                       attachments=None, fail_silently=False, addr_bcc=None,
+                       headers=None):
     """
     Send email rendering text and html versions for the specified
     template name using the context dictionary passed in.
@@ -36,14 +38,21 @@ def send_mail_template(subject, template, addr_from, addr_to, context=None,
         context = {}
     if attachments is None:
         attachments = []
+    # Add template accessible settings from Mezzanine to the context
+    # (normally added by a context processor for HTTP requests)
+    context.update(context_settings())
     # Allow for a single address to be passed in.
     if not hasattr(addr_to, "__iter__"):
         addr_to = [addr_to]
+    if addr_bcc is not None and not hasattr(addr_bcc, "__iter__"):
+        addr_bcc = [addr_bcc]
     # Loads a template passing in vars as context.
     render = lambda type: loader.get_template("%s.%s" %
                           (template, type)).render(Context(context))
     # Create and send email.
-    msg = EmailMultiAlternatives(subject, render("txt"), addr_from, addr_to)
+    msg = EmailMultiAlternatives(subject, render("txt"),
+                                 addr_from, addr_to, addr_bcc,
+                                 headers=headers)
     msg.attach_alternative(render("html"), "text/html")
     for attachment in attachments:
         msg.attach(*attachment)
@@ -62,7 +71,7 @@ def send_verification_mail(request, user, verification_type):
     verify_url = reverse(verification_type, kwargs={
         "uidb36": int_to_base36(user.id),
         "token": default_token_generator.make_token(user),
-    }) + "?next=" + request.GET.get("next", "/")
+    }) + "?next=" + (next_url(request) or "/")
     context = {
         "request": request,
         "user": user,

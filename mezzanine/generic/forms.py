@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.comments.forms import CommentSecurityForm, CommentForm
 from django.contrib.comments.signals import comment_was_posted
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext as _
 
 from mezzanine.conf import settings
 from mezzanine.core.forms import Html5Mixin
@@ -31,8 +31,7 @@ class KeywordsWidget(forms.MultiWidget):
     """
 
     class Media:
-        js = ("mezzanine/js/%s" % settings.JQUERY_FILENAME,
-              "mezzanine/js/admin/keywords_field.js",)
+        js = ("mezzanine/js/admin/keywords_field.js",)
 
     def __init__(self, attrs=None):
         """

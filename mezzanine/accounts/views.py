@@ -4,7 +4,6 @@ from django.contrib.auth import (authenticate, login as auth_login,
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import info, error
 from django.core.urlresolvers import NoReverseMatch
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.translation import ugettext_lazy as _
 
@@ -13,7 +12,7 @@ from mezzanine.accounts import get_profile_form
 from mezzanine.accounts.forms import LoginForm, PasswordResetForm
 from mezzanine.conf import settings
 from mezzanine.utils.email import send_verification_mail, send_approve_mail
-from mezzanine.utils.urls import login_redirect
+from mezzanine.utils.urls import login_redirect, next_url
 from mezzanine.utils.views import render
 
 
@@ -40,7 +39,7 @@ def logout(request):
     """
     auth_logout(request)
     info(request, _("Successfully logged out"))
-    return redirect(request.GET.get("next", "/"))
+    return redirect(next_url(request) or "/")
 
 
 def signup(request, template="accounts/account_signup.html"):
@@ -60,7 +59,7 @@ def signup(request, template="accounts/account_signup.html"):
                 send_verification_mail(request, new_user, "signup_verify")
                 info(request, _("A verification email has been sent with "
                                 "a link for activating your account."))
-            return redirect(request.GET.get("next", "/"))
+            return redirect(next_url(request) or "/")
         else:
             info(request, _("Successfully signed up"))
             auth_login(request, new_user)
@@ -76,8 +75,6 @@ def signup_verify(request, uidb36=None, token=None):
     is set to ``True``. Activates the user and logs them in,
     redirecting to the URL they tried to access when signing up.
     """
-    if settings.ACCOUNTS_APPROVAL_REQUIRED:
-        raise Http404
     user = authenticate(uidb36=uidb36, token=token, is_active=False)
     if user is not None:
         user.is_active = True
