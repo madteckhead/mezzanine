@@ -1,4 +1,5 @@
 # encoding: utf-8
+from __future__ import unicode_literals
 import datetime
 from south.db import db
 from south.v2 import DataMigration
@@ -44,14 +45,14 @@ class Migration(DataMigration):
                 post.categories.add(dict_category)
 
             # This try block will attempt to find other objects that might be related
-            # to the BlogCategory via a many-to-many relation outside of Mezzanine. It 
+            # to the BlogCategory via a many-to-many relation outside of Mezzanine. It
             # will then attempt to disassociate that object from the old category
             # to be deleted, and then attach the new catetegory that will replace it.
             #
             # The risk here is that this is being run against a live model rather than
-            # a frozen model.  Although that is a risk, if the live model is out of sync 
-            # it will generate errors early on and exit before the database is touched.  
-            # The database should only be touched if the db matches the live orm for the 
+            # a frozen model.  Although that is a risk, if the live model is out of sync
+            # it will generate errors early on and exit before the database is touched.
+            # The database should only be touched if the db matches the live orm for the
             # relevant models.
             #
             # Also note that for new installations none of this will be executed because
@@ -89,7 +90,7 @@ class Migration(DataMigration):
                             dict_category = site_dict.get(site.pk, None)
                             if not dict_category:
                                 orm_site = orm['sites.site'].objects.get(pk=site.pk)
-                                dict_category = OrmCategory(site=orm_site, slug=category.slug, 
+                                dict_category = OrmCategory(site=orm_site, slug=category.slug,
                                                             title=category.title)
                                 dict_category.save()
                                 site_dict[site.pk] = dict_category
@@ -104,19 +105,19 @@ class Migration(DataMigration):
                             assert(related in model._base_manager.filter(**{field:new_category}))
                             assert(related not in model._base_manager.filter(**{field:live_category}))
 
-                    except Exception, e:
+                    except Exception as e:
                         import pdb; pdb.set_trace()
                         "It may be OK just to continue."
 
-            except Exception, e:
+            except Exception as e:
                 import pdb; pdb.set_trace()
                 "It may be OK just to continue"
 
             try:
                 category.delete()
-            except Exception, e:
+            except Exception as e:
                 import pdb; pdb.set_trace()
-        
+
 
     def backwards(self, orm):
         "Write your backwards methods here."
@@ -163,16 +164,16 @@ class Migration(DataMigration):
             'Meta': {'ordering': "('-publish_date',)", 'object_name': 'BlogPost'},
             'allow_comments': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'categories': ('django.db.models.fields.related.ManyToManyField', [], {'symmetrical': 'False', 'related_name': "'blogposts'", 'blank': 'True', 'to': "orm['blog.BlogCategory']"}),
-            'comments': ('mezzanine.generic.fields.CommentsField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.ThreadedComment']"}),
+            #'comments': ('mezzanine.generic.fields.CommentsField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.ThreadedComment']"}),
             'comments_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'content': ('mezzanine.core.fields.RichTextField', [], {}),
             'description': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'expiry_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'keywords': ('mezzanine.generic.fields.KeywordsField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.AssignedKeyword']"}),
+            #'keywords': ('mezzanine.generic.fields.KeywordsField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.AssignedKeyword']"}),
             'keywords_string': ('django.db.models.fields.CharField', [], {'max_length': '500', 'blank': 'True'}),
             'publish_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'rating': ('mezzanine.generic.fields.RatingField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.Rating']"}),
+            #'rating': ('mezzanine.generic.fields.RatingField', [], {'object_id_field': "'object_pk'", 'to': "orm['generic.Rating']"}),
             'rating_average': ('django.db.models.fields.FloatField', [], {'default': '0'}),
             'rating_count': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'short_url': ('django.db.models.fields.URLField', [], {'max_length': '200', 'null': 'True', 'blank': 'True'}),

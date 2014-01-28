@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.core.exceptions import MiddlewareNotUsed
 from django.http import HttpResponse, Http404
@@ -90,7 +92,7 @@ class PageMiddleware(object):
 
         # If we can't add context to the response we just return it.
         # (redirects, etc)
-        if not hasattr(response, "context_data"):
+        if getattr(response, "context_data", None) is None:
             return response
 
         # Add the page to its template context, and set helper

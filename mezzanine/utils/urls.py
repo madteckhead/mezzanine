@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+from future.builtins import str
 
 import re
 import unicodedata
@@ -6,7 +8,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import (resolve, reverse, NoReverseMatch,
                                       get_script_prefix)
 from django.shortcuts import redirect
-from django.utils.encoding import smart_unicode
+try:
+    from django.utils.encoding import smart_text
+except ImportError:
+    # Backward compatibility for Py2 and Django < 1.5
+    from django.utils.encoding import smart_unicode as smart_text
 from django.utils.http import is_safe_url
 from django.utils import translation
 
@@ -57,7 +63,7 @@ def slugify_unicode(s):
     Adopted from https://github.com/mozilla/unicode-slugify/
     """
     chars = []
-    for char in unicode(smart_unicode(s)):
+    for char in str(smart_text(s)):
         cat = unicodedata.category(char)[0]
         if cat in "LN" or char in "-_~":
             chars.append(char)
@@ -110,7 +116,7 @@ def login_redirect(request):
         try:
             next = reverse(settings.LOGIN_REDIRECT_URL)
         except NoReverseMatch:
-            next = "/"
+            next = get_script_prefix()
     return redirect(next)
 
 
@@ -125,4 +131,5 @@ def path_to_slug(path):
     for prefix in (lang_code, settings.SITE_PREFIX, PAGES_SLUG):
         if prefix:
             path = path.replace(prefix, "", 1)
-    return path.strip("/") or "/"
+    path = path.strip("/") if settings.APPEND_SLASH else path.lstrip("/")
+    return path or "/"

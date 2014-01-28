@@ -1,7 +1,8 @@
 
-from __future__ import with_statement
 import os
 import sys
+from setuptools import setup, find_packages
+from mezzanine import __version__ as version
 
 
 exclude = ["mezzanine/project_template/dev.db",
@@ -22,19 +23,15 @@ for e in exclude:
     except:
         pass
 
-from setuptools import setup, find_packages
-
-from mezzanine import __version__ as version
-
 install_requires = [
-    "django >= 1.4.8, < 1.6",
-    "filebrowser_safe >= 0.2.27",
-    "grappelli_safe >= 0.2.22",
-    "html5lib == 0.95",
-    "bleach",
-    "pytz >= 2013b",
-    "requests==1.2.3",
-    "requests-oauthlib > 0.3.2, < 0.4",
+    "django >= 1.4.10, != 1.6.0, < 1.7",
+    "filebrowser_safe >= 0.3.1",
+    "grappelli_safe >= 0.3.4",
+    "tzlocal == 1.0",
+    "bleach >= 1.4",
+    "requests >= 2.1.0",
+    "requests-oauthlib >= 0.4",
+    "future == 0.9.0",
 ]
 
 try:
@@ -46,7 +43,6 @@ except ImportError:
         # no way to install pillow/PIL with jython, so exclude this in any case
         if not sys.platform.startswith('java'):
             install_requires += ["pillow"]
-
 
 try:
     setup(
@@ -78,6 +74,10 @@ try:
             "License :: OSI Approved :: BSD License",
             "Operating System :: OS Independent",
             "Programming Language :: Python",
+            "Programming Language :: Python :: 2.6",
+            "Programming Language :: Python :: 2.7",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.3",
             "Topic :: Internet :: WWW/HTTP",
             "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
             "Topic :: Internet :: WWW/HTTP :: WSGI",

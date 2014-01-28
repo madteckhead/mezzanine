@@ -1,3 +1,5 @@
+from __future__ import division, unicode_literals
+from future.utils import native_str
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
@@ -27,11 +29,13 @@ class GenericTests(TestCase):
         for value in settings.RATINGS_RANGE:
             data["value"] = value
             response = self.client.post(reverse("rating"), data=data)
-            response.delete_cookie("mezzanine-rating")
+            # Django doesn't seem to support unicode cookie keys correctly on
+            # Python 2. See https://code.djangoproject.com/ticket/19802
+            response.delete_cookie(native_str("mezzanine-rating"))
         blog_post = BlogPost.objects.get(id=blog_post.id)
         count = len(settings.RATINGS_RANGE)
         _sum = sum(settings.RATINGS_RANGE)
-        average = _sum / float(count)
+        average = _sum / count
         self.assertEqual(blog_post.rating_count, count)
         self.assertEqual(blog_post.rating_sum, _sum)
         self.assertEqual(blog_post.rating_average, average)
@@ -57,7 +61,7 @@ class GenericTests(TestCase):
         self.assertTrue(before > 0)
         self.create_recursive_objects(ThreadedComment, "replied_to", **kwargs)
         after = self.queries_used_for_template(template, **context)
-        self.assertEquals(before, after)
+        self.assertEqual(before, after)
 
     @skipUnless("mezzanine.pages" in settings.INSTALLED_APPS,
                 "pages app required")
@@ -72,11 +76,11 @@ class GenericTests(TestCase):
             keyword_id = Keyword.objects.get_or_create(title=keyword)[0].id
             page.keywords.add(AssignedKeyword(keyword_id=keyword_id))
         page = RichTextPage.objects.get(id=page.id)
-        self.assertEquals(keywords, set(page.keywords_string.split()))
+        self.assertEqual(keywords, set(page.keywords_string.split()))
         # Test removal.
         first = Keyword.objects.all()[0]
         keywords.remove(first.title)
         first.delete()
         page = RichTextPage.objects.get(id=page.id)
-        self.assertEquals(keywords, set(page.keywords_string.split()))
+        self.assertEqual(keywords, set(page.keywords_string.split()))
         page.delete()

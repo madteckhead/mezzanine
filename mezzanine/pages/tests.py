@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+from future.builtins import str
 
 from django.db import connection
 from django.template import Context, Template
@@ -53,7 +55,7 @@ class PagesTests(TestCase):
         secondary.slug += "custom"
         secondary.save()
         pages_for_slug = Page.objects.with_ascendants_for_slug(tertiary.slug)
-        self.assertEquals(len(pages_for_slug[0]._ascendants), 0)
+        self.assertEqual(len(pages_for_slug[0]._ascendants), 0)
         connection.queries = []
         ascendants = pages_for_slug[0].get_ascendants()
         self.assertEqual(len(connection.queries), 2)  # 2 parent queries
@@ -141,7 +143,7 @@ class PagesTests(TestCase):
         self.create_recursive_objects(RichTextPage, "parent", title="Page",
                                       status=CONTENT_STATUS_PUBLISHED)
         after = self.queries_used_for_template(template)
-        self.assertEquals(before, after)
+        self.assertEqual(before, after)
 
     def test_page_menu_flags(self):
         """
@@ -154,12 +156,12 @@ class PagesTests(TestCase):
         for i, label, path in settings.PAGE_MENU_TEMPLATES:
             menus.append(i)
             pages.append(RichTextPage.objects.create(in_menus=list(menus),
-                title="Page for %s" % unicode(label),
+                title="Page for %s" % str(label),
                 status=CONTENT_STATUS_PUBLISHED))
             template += "{%% page_menu '%s' %%}" % path
         rendered = Template(template).render(Context({}))
         for page in pages:
-            self.assertEquals(rendered.count(page.title), len(page.in_menus))
+            self.assertEqual(rendered.count(page.title), len(page.in_menus))
 
     def test_page_menu_default(self):
         """

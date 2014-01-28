@@ -1,29 +1,29 @@
+from __future__ import absolute_import, division, unicode_literals
+from future.builtins import int, open, str
 
 from hashlib import md5
+from json import loads
 import os
-from urllib import urlopen, urlencode, quote, unquote
+try:
+    from urllib.request import urlopen
+    from urllib.parse import urlencode, quote, unquote
+except ImportError:
+    from urllib import urlopen, urlencode, quote, unquote
 
 from django.contrib import admin
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.sites.models import Site
 from django.core.files import File
 from django.core.files.storage import default_storage
-from django.core.urlresolvers import reverse, NoReverseMatch
+from django.core.urlresolvers import reverse, resolve, NoReverseMatch
 from django.db.models import Model, get_model
-
 from django.template import (Context, Node, TextNode, Template,
-                             TemplateSyntaxError, TOKEN_TEXT, TOKEN_VAR,
-                             TOKEN_COMMENT, TOKEN_BLOCK)
-
+    TemplateSyntaxError, TOKEN_TEXT, TOKEN_VAR, TOKEN_COMMENT, TOKEN_BLOCK)
 from django.template.defaultfilters import escape
 from django.template.loader import get_template
+from django.utils import translation
 from django.utils.html import strip_tags
 from django.utils.text import capfirst
-
-try:
-    from json import loads
-except ImportError:  # Python < 2.6
-    from django.utils.simplejson import loads
 
 # Try to import PIL in either of the two ways it can end up installed.
 try:
@@ -111,6 +111,15 @@ def fields_for(context, form):
     return context
 
 
+@register.inclusion_tag("includes/form_errors.html", takes_context=True)
+def errors_for(context, form):
+    """
+    Renders an alert if the form has any errors.
+    """
+    context["form"] = form
+    return context
+
+
 @register.filter
 def sort_by(items, attr):
     """
@@ -192,7 +201,7 @@ def set_short_url_for(context, token):
                 "access_token": context["settings"].BITLY_ACCESS_TOKEN,
                 "uri": obj.short_url,
             })
-            response = loads(urlopen(url).read())
+            response = loads(urlopen(url).read().decode("utf-8"))
             if response["status_code"] == 200:
                 obj.short_url = response["data"]["url"]
                 obj.save()
@@ -248,7 +257,7 @@ def search_form(context, search_model_names=None):
     string ``all`` can also be used, in which case the models defined
     by the ``SEARCH_MODEL_CHOICES`` setting will be used.
     """
-    if not search_model_names:
+    if not search_model_names or not settings.SEARCH_MODEL_CHOICES:
         search_model_names = []
     elif search_model_names == "all":
         search_model_names = list(settings.SEARCH_MODEL_CHOICES)
@@ -265,7 +274,7 @@ def search_form(context, search_model_names=None):
 
 
 @register.simple_tag
-def thumbnail(image_url, width, height, quality=95):
+def thumbnail(image_url, width, height, quality=95, left=0.5, top=0.5):
     """
     Given the URL to an image, resizes the image using the given width and
     height on the first time it is requested, and returns the URL to the new
@@ -275,13 +284,18 @@ def thumbnail(image_url, width, height, quality=95):
     if not image_url:
         return ""
 
-    image_url = unquote(unicode(image_url)).split("?")[0]
+    image_url = unquote(str(image_url)).split("?")[0]
     if image_url.startswith(settings.MEDIA_URL):
         image_url = image_url.replace(settings.MEDIA_URL, "", 1)
     image_dir, image_name = os.path.split(image_url)
     image_prefix, image_ext = os.path.splitext(image_name)
     filetype = {".png": "PNG", ".gif": "GIF"}.get(image_ext, "JPEG")
-    thumb_name = "%s-%sx%s%s" % (image_prefix, width, height, image_ext)
+    thumb_name = "%s-%sx%s" % (image_prefix, width, height)
+    if left != 0.5 or top != 0.5:
+        left = min(1, max(0, left))
+        top = min(1, max(0, top))
+        thumb_name = "%s-%sx%s" % (thumb_name, left, top)
+    thumb_name = "%s%s" % (thumb_name, image_ext)
     thumb_dir = os.path.join(settings.MEDIA_ROOT, image_dir,
                              settings.THUMBNAILS_DIR_NAME)
     if not os.path.exists(thumb_dir):
@@ -324,15 +338,16 @@ def thumbnail(image_url, width, height, quality=95):
         return image_url
     # Set dimensions.
     if width == 0:
-        width = image.size[0] * height / image.size[1]
+        width = image.size[0] * height // image.size[1]
     elif height == 0:
-        height = image.size[1] * width / image.size[0]
+        height = image.size[1] * width // image.size[0]
     if image.mode not in ("P", "L", "RGBA"):
         image = image.convert("RGBA")
     # Required for progressive jpgs.
     ImageFile.MAXBLOCK = 2 * (max(image.size) ** 2)
+    pos = (left, top)
     try:
-        image = ImageOps.fit(image, (width, height), Image.ANTIALIAS)
+        image = ImageOps.fit(image, (width, height), Image.ANTIALIAS, 0, pos)
         image = image.save(thumb_path, filetype, quality=quality, **image_info)
         # Push a remote copy of the thumbnail if MEDIA_URL is
         # absolute.
@@ -421,7 +436,7 @@ def editable(parsed, context, token):
         fields = [f for f in fields if len(f) == 2 and f[0] is fields[0][0]]
     if not parsed.strip():
         try:
-            parsed = "".join([unicode(getattr(*field)) for field in fields])
+            parsed = "".join([str(getattr(*field)) for field in fields])
         except AttributeError:
             pass
 
@@ -523,7 +538,7 @@ def admin_app_list(request):
                 })
 
     # Menu may also contain view or url pattern names given as (title, name).
-    for (item_url, item) in menu_order.iteritems():
+    for (item_url, item) in menu_order.items():
         app_index, app_title, item_index, item_title = item
         try:
             item_url = reverse(item_url)
@@ -542,8 +557,8 @@ def admin_app_list(request):
             "admin_url": item_url,
         })
 
-    app_list = app_dict.values()
-    sort = lambda x: x["name"] if x["index"] is None else x["index"]
+    app_list = list(app_dict.values())
+    sort = lambda x: (x["index"] if x["index"] is not None else 999, x["name"])
     for app in app_list:
         app["models"].sort(key=sort)
     app_list.sort(key=sort)
@@ -598,3 +613,30 @@ def dashboard_column(context, token):
         t = Template("{%% load %s %%}{%% %s %%}" % tuple(tag.split(".")))
         output.append(t.render(Context(context)))
     return "".join(output)
+
+
+@register.simple_tag(takes_context=True)
+def translate_url(context, language):
+    """
+    Translates the current URL for the given language code, eg:
+
+        {% translate_url de %}
+    """
+    try:
+        request = context["request"]
+    except KeyError:
+        return ""
+    view = resolve(request.path)
+    current_language = translation.get_language()
+    translation.activate(language)
+    try:
+        url_name = (view.url_name if not view.namespace
+                    else '%s:%s' % (view.namespace, view.url_name))
+        url = reverse(url_name, args=view.args, kwargs=view.kwargs)
+    except NoReverseMatch:
+        url_name = "admin:" + view.url_name
+        url = reverse(url_name, args=view.args, kwargs=view.kwargs)
+    translation.activate(current_language)
+    if context['request'].META["QUERY_STRING"]:
+        url += "?" + context['request'].META["QUERY_STRING"]
+    return url

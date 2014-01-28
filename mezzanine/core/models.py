@@ -1,8 +1,13 @@
+from __future__ import unicode_literals
+from future.builtins import str
+from future.utils import with_metaclass
+
 from django.contrib.contenttypes.generic import GenericForeignKey
 from django.db import models
 from django.db.models.base import ModelBase
 from django.db.models.signals import post_save
 from django.template.defaultfilters import truncatewords_html
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.html import strip_tags
 from django.utils.timesince import timesince
 from django.utils.timezone import now
@@ -46,6 +51,7 @@ class SiteRelated(models.Model):
         super(SiteRelated, self).save(*args, **kwargs)
 
 
+@python_2_unicode_compatible
 class Slugged(SiteRelated):
     """
     Abstract model that handles auto-generating slugs. Each slugged
@@ -60,21 +66,27 @@ class Slugged(SiteRelated):
     class Meta:
         abstract = True
 
-    def __unicode__(self):
+    def __str__(self):
         return self.title
 
     def save(self, *args, **kwargs):
         """
-        Create a unique slug by appending an index.
+        If no slug is provided, generates one before saving.
         """
         if not self.slug:
-            self.slug = self.get_slug()
+            self.slug = self.generate_unique_slug()
+        super(Slugged, self).save(*args, **kwargs)
+
+    def generate_unique_slug(self):
+        """
+        Create a unique slug by passing the result of get_slug() to
+        utils.urls.unique_slug, which appends an index if necessary.
+        """
         # For custom content types, use the ``Page`` instance for
         # slug lookup.
         concrete_model = base_concrete_model(Slugged, self)
         slug_qs = concrete_model.objects.exclude(id=self.id)
-        self.slug = unique_slug(slug_qs, "slug", self.slug)
-        super(Slugged, self).save(*args, **kwargs)
+        return unique_slug(slug_qs, "slug", self.get_slug())
 
     def get_slug(self):
         """
@@ -121,7 +133,7 @@ class MetaData(models.Model):
         Accessor for the optional ``_meta_title`` field, which returns
         the string version of the instance if not provided.
         """
-        return self._meta_title or unicode(self)
+        return self._meta_title or str(self)
 
     def description_from_content(self):
         """
@@ -143,7 +155,7 @@ class MetaData(models.Model):
                             break
         # Fall back to the title if description couldn't be determined.
         if not description:
-            description = unicode(self)
+            description = str(self)
         # Strip everything after the first block or sentence.
         ends = ("</p>", "<br />", "<br/>", "<br>", "</ul>",
                 "\n", ". ", "! ", "? ")
@@ -309,7 +321,7 @@ class OrderableBase(ModelBase):
         return super(OrderableBase, cls).__new__(cls, name, bases, attrs)
 
 
-class Orderable(models.Model):
+class Orderable(with_metaclass(OrderableBase, models.Model)):
     """
     Abstract model that provides a custom ordering integer field
     similar to using Meta's ``order_with_respect_to``, since to
@@ -317,8 +329,6 @@ class Orderable(models.Model):
     or with Generic Relations. We may also want this feature for
     models that aren't ordered with respect to a particular field.
     """
-
-    __metaclass__ = OrderableBase
 
     _order = models.IntegerField(_("Order"), null=True)
 

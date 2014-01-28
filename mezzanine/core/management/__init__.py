@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import unicode_literals
+from future.builtins import input
 from socket import gethostname
 
 from django.conf import settings
@@ -19,10 +22,10 @@ def create_user(app, created_models, verbosity, interactive, **kwargs):
         if User.objects.count() > 0:
             return
         if verbosity >= 1:
-            print
-            print ("Creating default account "
-                   "(username: admin / password: default) ...")
-            print
+            print()
+            print("Creating default account "
+                  "(username: admin / password: default) ...")
+            print()
         args = "admin", "example@example.com", "default"
         User.objects.create_superuser(*args)
 
@@ -47,7 +50,7 @@ def create_pages(app, created_models, verbosity, interactive, **kwargs):
     if required.issubset(set(created_models)):
         call_command("loaddata", "mezzanine_required.json")
         if interactive:
-            confirm = raw_input("\nWould you like to install some initial "
+            confirm = input("\nWould you like to install some initial "
                                 "demo pages?\nEg: About us, Contact form, "
                                 "Gallery. (yes/no): ")
             while True:
@@ -55,7 +58,7 @@ def create_pages(app, created_models, verbosity, interactive, **kwargs):
                     break
                 elif confirm == "no":
                     return
-                confirm = raw_input("Please enter either 'yes' or 'no': ")
+                confirm = input("Please enter either 'yes' or 'no': ")
             install_optional_data(verbosity)
 
 
@@ -63,7 +66,7 @@ def create_site(app, created_models, verbosity, interactive, **kwargs):
     if Site in created_models:
         domain = "127.0.0.1:8000" if settings.DEBUG else gethostname()
         if interactive:
-            entered = raw_input("\nA site record is required.\nPlease "
+            entered = input("\nA site record is required.\nPlease "
                                 "enter the domain and optional port in "
                                 "the format 'domain:port'.\nFor example "
                                 "'localhost:8000' or 'www.example.com'. "
@@ -72,9 +75,9 @@ def create_site(app, created_models, verbosity, interactive, **kwargs):
             if entered:
                 domain = entered.strip("': ")
         if verbosity >= 1:
-            print
-            print "Creating default site record: %s ... " % domain
-            print
+            print()
+            print("Creating default site record: %s ... " % domain)
+            print()
         Site.objects.create(name="Default", domain=domain)
 
 
@@ -82,9 +85,9 @@ def install_optional_data(verbosity):
     if not is_full_install():
         return
     if verbosity >= 1:
-        print
-        print "Creating demo pages: About us, Contact form, Gallery ..."
-        print
+        print()
+        print("Creating demo pages: About us, Contact form, Gallery ...")
+        print()
     from mezzanine.galleries.models import Gallery
     call_command("loaddata", "mezzanine_optional.json")
     zip_name = "gallery.zip"

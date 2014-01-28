@@ -1,8 +1,16 @@
+from __future__ import division, unicode_literals
+from future.builtins import int
 
 from datetime import datetime, timedelta
 
-from urllib import urlencode
-from urllib2 import Request, urlopen
+try:
+    from urllib.parse import urlencode
+except ImportError:     # Python 2
+    from urllib import urlencode
+try:
+    from urllib.request import Request, urlopen
+except ImportError:     # Python 2
+    from urllib2 import Request, urlopen
 
 import django
 from django.core.paginator import Paginator, InvalidPage, EmptyPage
@@ -39,7 +47,7 @@ def ip_for_request(request):
     header, since app will generally be behind a public web server.
     """
     meta = request.META
-    return meta.get("HTTP_X_FORWARDED_FOR", meta["REMOTE_ADDR"])
+    return meta.get("HTTP_X_FORWARDED_FOR", meta["REMOTE_ADDR"]).split(",")[0]
 
 
 def is_spam_akismet(request, form, url):
@@ -122,6 +130,8 @@ def paginate(objects, page_num, per_page, max_paging_links):
     Return a paginated page for the given objects, giving it a custom
     ``visible_page_range`` attribute calculated from ``max_paging_links``.
     """
+    if not per_page:
+        return Paginator(objects, 0)
     paginator = Paginator(objects, per_page)
     try:
         page_num = int(page_num)
@@ -134,7 +144,7 @@ def paginate(objects, page_num, per_page, max_paging_links):
     page_range = objects.paginator.page_range
     if len(page_range) > max_paging_links:
         start = min(objects.paginator.num_pages - max_paging_links,
-            max(0, objects.number - (max_paging_links / 2) - 1))
+            max(0, objects.number - (max_paging_links // 2) - 1))
         page_range = page_range[start:start + max_paging_links]
     objects.visible_page_range = page_range
     return objects
@@ -165,4 +175,11 @@ def set_cookie(response, name, value, expiry_seconds=None, secure=False):
                                 timedelta(seconds=expiry_seconds),
                                 "%a, %d-%b-%Y %H:%M:%S GMT")
     value = value.encode("utf-8")
-    response.set_cookie(name, value, expires=expires, secure=secure)
+    # Django doesn't seem to support unicode cookie keys correctly on
+    # Python 2. Work around by encoding it. See
+    # https://code.djangoproject.com/ticket/19802
+    try:
+        response.set_cookie(name, value, expires=expires, secure=secure)
+    except (KeyError, TypeError):
+        response.set_cookie(name.encode('utf-8'), value, expires=expires,
+                            secure=secure)

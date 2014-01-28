@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import unicode_literals
+from future.builtins import open
 
 from distutils.dir_util import copy_tree
 from optparse import OptionParser
@@ -71,8 +73,11 @@ def create_project():
     # Clean up pyc files.
     for (root, dirs, files) in os.walk(project_path, False):
         for f in files:
-            if f.endswith(".pyc"):
-                os.remove(os.path.join(root, f))
+            try:
+                if f.endswith(".pyc"):
+                    os.remove(os.path.join(root, f))
+            except:
+                pass
 
 if __name__ == "__main__":
     create_project()

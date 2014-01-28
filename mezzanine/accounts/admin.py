@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 
 from django.contrib import admin
 
@@ -57,5 +58,6 @@ if Profile:
     UserProfileAdmin.inlines += (ProfileInline,)
 
 
-admin.site.unregister(User)
+if User in admin.site._registry:
+    admin.site.unregister(User)
 admin.site.register(User, UserProfileAdmin)

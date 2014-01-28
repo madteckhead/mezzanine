@@ -33,13 +33,16 @@ if (typeof tinyMCE != 'undefined') {
         height: '350',
         indentation : '10px',
         fix_list_elements : true,
-        relative_urls: false,
         remove_script_host : true,
         accessibility_warnings : false,
         object_resizing: false,
         //cleanup: false, // SETTING THIS TO FALSE WILL BREAK EMBEDDING YOUTUBE VIDEOS
         forced_root_block: "p",
         remove_trailing_nbsp: true,
+
+        external_link_list_url: '/displayable_links.js',
+        relative_urls: false,
+        convert_urls: false,
 
         // callbackss
         file_browser_callback: "CustomFileBrowser",
@@ -72,8 +75,10 @@ if (typeof tinyMCE != 'undefined') {
         paste_strip_class_attributes: true,
 
         // don't strip anything since this is handled by bleach
-        valid_elements : "*[*]"
+        valid_elements: "+*[*]",
+        valid_children: "+button[a]"
 
 	});
 
 }
+

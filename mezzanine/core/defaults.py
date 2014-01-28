@@ -9,6 +9,7 @@ making it editable, as it may be inappropriate - for example settings
 that are only read during startup shouldn't be editable, since changing
 them would require an application reload.
 """
+from __future__ import unicode_literals
 
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
@@ -66,7 +67,7 @@ register_setting(
         "caching. This is where the requested expiry for a cache entry "
         "is stored with the cache entry in cache, and the real expiry "
         "used has the ``CACHE_SET_DELAY`` added to it. Then on a cache get, "
-        "the store expiry is checked, and if it has past, the cache entry "
+        "the store expiry is checked, and if it has passed, the cache entry "
         "is set again, and no entry is returned. This tries to ensure that "
         "cache misses never occur, and if many clients were to get a cache "
         "miss at once, only one would actually need to re-generated the "
@@ -134,6 +135,15 @@ register_setting(
 )
 
 register_setting(
+    name="EMAIL_FAIL_SILENTLY",
+    description=_("If ``True``, failures to send email will happen "
+                  "silently, otherwise an exception is raised. "
+                  "Defaults to ``settings.DEBUG``."),
+    editable=False,
+    default=settings.DEBUG,
+)
+
+register_setting(
     name="EXTRA_MODEL_FIELDS",
     description=_("A sequence of fields that will be injected into "
         "Mezzanine's (or any library's) models. Each item in the sequence is "
@@ -159,7 +169,7 @@ register_setting(
 register_setting(
     name="HOST_THEMES",
     description=_("A sequence mapping host names to themes, allowing "
-                  "different templates to be served per HTTP hosts "
+                  "different templates to be served per HTTP host. "
                   "Each item in the sequence is a two item sequence, "
                   "containing a host such as ``othersite.example.com``, and "
                   "the name of an importable Python package for the theme. "
@@ -367,7 +377,7 @@ register_setting(
     description=_("Dotted Python path to the callable for converting "
         "strings into URL slugs. Defaults to "
         "``mezzanine.utils.urls.slugify_unicode`` which allows for non-ascii "
-        "URLS. Change to ``django.template.defaultfilters.slugify`` to use "
+        "URLs. Change to ``django.template.defaultfilters.slugify`` to use "
         "Django's slugify function, or something of your own if required."),
     editable=False,
     default="mezzanine.utils.urls.slugify_unicode",
@@ -444,7 +454,7 @@ register_setting(
         "done", "down", "due", "during", "each", "eg", "eight",
         "either", "eleven", "else", "elsewhere", "empty", "enough",
         "etc", "even", "ever", "every", "everyone", "everything",
-        "everywhere", "except", "few", "fifteen", "fify", "fill",
+        "everywhere", "except", "few", "fifteen", "fifty", "fill",
         "find", "fire", "first", "five", "for", "former", "formerly",
         "forty", "found", "four", "from", "front", "full", "further",
         "get", "give", "go", "had", "has", "hasnt", "have", "he",
@@ -495,13 +505,13 @@ register_setting(
     description=_("Sequence of setting names available within templates."),
     editable=False,
     default=(
-        "ACCOUNTS_VERIFICATION_REQUIRED", "BITLY_ACCESS_TOKEN",
-        "BLOG_USE_FEATURED_IMAGE", "COMMENTS_DISQUS_SHORTNAME",
-        "COMMENTS_NUM_LATEST", "COMMENTS_DISQUS_API_PUBLIC_KEY",
-        "COMMENTS_DISQUS_API_SECRET_KEY", "COMMENTS_USE_RATINGS",
-        "DEV_SERVER", "FORMS_USE_HTML5", "GRAPPELLI_INSTALLED",
-        "GOOGLE_ANALYTICS_ID", "JQUERY_FILENAME", "LOGIN_URL", "LOGOUT_URL",
-        "SITE_TITLE", "SITE_TAGLINE",
+        "ACCOUNTS_APPROVAL_REQUIRED", "ACCOUNTS_VERIFICATION_REQUIRED",
+        "BITLY_ACCESS_TOKEN", "BLOG_USE_FEATURED_IMAGE",
+        "COMMENTS_DISQUS_SHORTNAME", "COMMENTS_NUM_LATEST",
+        "COMMENTS_DISQUS_API_PUBLIC_KEY", "COMMENTS_DISQUS_API_SECRET_KEY",
+        "COMMENTS_USE_RATINGS", "DEV_SERVER", "FORMS_USE_HTML5",
+        "GRAPPELLI_INSTALLED", "GOOGLE_ANALYTICS_ID", "JQUERY_FILENAME",
+        "LOGIN_URL", "LOGOUT_URL", "SITE_TITLE", "SITE_TAGLINE",
     ),
 )
 

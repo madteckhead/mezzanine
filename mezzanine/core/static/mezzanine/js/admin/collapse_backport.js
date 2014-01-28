@@ -1,5 +1,6 @@
-$(document).ready(function(){
-    
+
+jQuery(function($) {
+
     /// FIELDSETS
     $('fieldset[class*="collapse-closed"]').each(function() {
         $(this).addClass("collapsed");
@@ -13,12 +14,12 @@ $(document).ready(function(){
         $(this).parent().toggleClass('collapse-closed');
         $(this).parent().toggleClass('collapse-open');
     });
-    
+
     /// OPEN FIELDSETS WITH ERRORS
     $('fieldset[class*="collapse-closed"]').children('div[class*="errors"]').each(function(i) {
         $(this).parent().toggleClass("collapsed");
         $(this).parent().toggleClass('collapse-closed');
         $(this).parent().toggleClass('collapse-open');
     });
-    
+
 });

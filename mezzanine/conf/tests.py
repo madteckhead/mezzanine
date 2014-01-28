@@ -1,11 +1,20 @@
+from __future__ import unicode_literals
+from future.builtins import bytes, str
+import sys
 
-from mezzanine.conf import settings, registry
+from django.conf import settings as django_settings
+from django.utils.unittest import skipUnless
+
+from mezzanine.conf import settings, registry, register_setting
 from mezzanine.conf.models import Setting
 from mezzanine.utils.tests import TestCase
 
 
 class ConfTests(TestCase):
 
+    @skipUnless(sys.version_info[0] == 2,
+                "Randomly fails or succeeds under Python 3 as noted in "
+                "GH #858 - please fix.")
     def test_settings(self):
         """
         Test that an editable setting can be overridden with a DB
@@ -26,14 +35,39 @@ class ConfTests(TestCase):
                 setting_value += 1
             elif setting_type is bool:
                 setting_value = not setting_value
-            elif setting_type in (str, unicode):
-                setting_value += "test"
+            elif setting_type is str:
+                setting_value += u"test"
+            elif setting_type is bytes:
+                setting_value += b"test"
             else:
                 setting = "%s: %s" % (setting_name, setting_type)
                 self.fail("Unsupported setting type for %s" % setting)
             values_by_name[setting_name] = setting_value
-            Setting.objects.create(name=setting_name, value=str(setting_value))
+            Setting.objects.create(name=setting_name, value=setting_value)
         # Load the settings and make sure the DB values have persisted.
         settings.use_editable()
         for (name, value) in values_by_name.items():
             self.assertEqual(getattr(settings, name), value)
+
+    def test_editable_override(self):
+        """
+        Test that an editable setting is always overridden by a settings.py
+        setting of the same name.
+        """
+        Setting.objects.all().delete()
+        django_settings.SITE_TAGLINE = "This tagline is set in settings.py."
+        db_tagline = Setting(name="SITE_TAGLINE",
+                             value="This tagline is set in the database.")
+        db_tagline.save()
+        settings.use_editable()
+        first_tagline = settings.SITE_TAGLINE
+        settings.SITE_TITLE
+        second_tagline = settings.SITE_TAGLINE
+        self.assertEqual(first_tagline, second_tagline)
+
+    def test_bytes_conversion(self):
+        register_setting(name="BYTES_TEST_SETTING", editable=True, default=b"")
+        Setting.objects.create(name="BYTES_TEST_SETTING",
+                               value="A unicode value")
+        settings.use_editable()
+        self.assertEqual(settings.BYTES_TEST_SETTING, b"A unicode value")

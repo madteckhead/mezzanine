@@ -1,5 +1,11 @@
+from __future__ import absolute_import, unicode_literals
+from future.builtins import int, open
+
 import os
-from urlparse import urljoin, urlparse
+try:
+    from urllib.parse import urljoin, urlparse
+except ImportError:
+    from urlparse import urljoin, urlparse
 
 from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
@@ -92,8 +98,8 @@ def edit(request):
         model_admin.log_change(request, obj, message)
         response = ""
     else:
-        response = form.errors.values()[0][0]
-    return HttpResponse(unicode(response))
+        response = list(form.errors.values())[0][0]
+    return HttpResponse(response)
 
 
 def search(request, template="search_results.html"):
@@ -129,18 +135,16 @@ def static_proxy(request):
     SWF, as these are normally static files, and will break with
     cross-domain JavaScript errors if ``STATIC_URL`` is an external
     host. URL for the file is passed in via querystring in the inline
-    popup plugin template.
+    popup plugin template, and we then attempt to pull out the relative
+    path to the file, so that we can serve it locally via Django.
     """
-    # Get the relative URL after STATIC_URL.
-    url = request.GET["u"]
-    protocol = "http" if not request.is_secure() else "https"
-    host = protocol + "://" + request.get_host()
-    generic_host = "//" + request.get_host()
-    # STATIC_URL often contains host or generic_host, so remove it
-    # first otherwise the replacement loop below won't work.
-    static_url = settings.STATIC_URL.replace(host, "", 1)
-    static_url = static_url.replace(generic_host, "", 1)
-    for prefix in (host, generic_host, static_url, "/"):
+    normalize = lambda u: "//" + u.split("://")[-1]
+    url = normalize(request.GET["u"])
+    host = normalize(request.get_host())
+    static_url = settings.STATIC_URL
+    if "://" in static_url:
+        static_url = normalize(static_url)
+    for prefix in (host, static_url, "/"):
         if url.startswith(prefix):
             url = url.replace(prefix, "", 1)
     response = ""
@@ -149,20 +153,49 @@ def static_proxy(request):
     if path:
         if isinstance(path, (list, tuple)):
             path = path[0]
-        with open(path, "rb") as f:
-            response = f.read()
-        mimetype = "application/octet-stream"
         if url.endswith(".htm"):
             # Inject <base href="{{ STATIC_URL }}"> into TinyMCE
             # plugins, since the path static files in these won't be
             # on the same domain.
-            mimetype = "text/html"
             static_url = settings.STATIC_URL + os.path.split(url)[0] + "/"
             if not urlparse(static_url).scheme:
                 static_url = urljoin(host, static_url)
             base_tag = "<base href='%s'>" % static_url
-            response = response.replace("<head>", "<head>" + base_tag)
+            mimetype = "text/html"
+            with open(path, "r") as f:
+                response = f.read().replace("<head>", "<head>" + base_tag)
+        else:
+            mimetype = "application/octet-stream"
+            with open(path, "rb") as f:
+                response = f.read()
     return HttpResponse(response, mimetype=mimetype)
+
+
+def displayable_links_js(request, template_name="admin/displayable_links.js"):
+    """
+    Renders a list of url/title pairs for all ``Displayable`` subclass
+    instances into JavaScript that's used to populate a list of links
+    in TinyMCE.
+    """
+    links = []
+    if "mezzanine.pages" in settings.INSTALLED_APPS:
+        from mezzanine.pages.models import Page
+        is_page = lambda obj: isinstance(obj, Page)
+    else:
+        is_page = lambda obj: False
+    # For each item's title, we use its model's verbose_name, but in the
+    # case of Page subclasses, we just use "Page", and then sort the items
+    # by whether they're a Page subclass or not, then by their URL.
+    for url, obj in Displayable.objects.url_map(for_user=request.user).items():
+        title = getattr(obj, "titles", obj.title)
+        real = hasattr(obj, "id")
+        page = is_page(obj)
+        if real:
+            verbose_name = _("Page") if page else obj._meta.verbose_name
+            title = "%s: %s" % (verbose_name, title)
+        links.append((not page and real, url, title))
+    context = {"links": [link[1:] for link in sorted(links)]}
+    return render(request, template_name, context, mimetype="text/javascript")
 
 
 @requires_csrf_token

@@ -1,3 +1,6 @@
+from __future__ import unicode_literals
+from future.builtins import open, range, str
+from future.utils import native_str
 
 from _ast import PyCF_ONLY_AST
 import os
@@ -45,7 +48,6 @@ IGNORE_ERRORS = (
 
     # Deprecated compat timezones for Django 1.3
     "mezzanine/utils/timezone",
-
 )
 
 
@@ -88,7 +90,7 @@ class TestCase(BaseTestCase):
         """
         Create multiple levels of recursive objects.
         """
-        per_level = range(3)
+        per_level = list(range(3))
         for _ in per_level:
             kwargs[parent_field] = None
             level1 = model.objects.create(**kwargs)
@@ -134,7 +136,11 @@ def _run_checker_for_package(checker, package_name, extra_ignore=None):
         for f in files:
             # Ignore migrations.
             directory = root.split(os.sep)[-1]
-            if (f == "local_settings.py" or not f.endswith(".py")
+            # Using native_str here avoids the dreaded UnicodeDecodeError
+            # on Py2 with filenames with high-bit characters when
+            # unicode_literals in effect:
+            ext = native_str(".py")
+            if (f == "local_settings.py" or not f.endswith(ext)
                 or directory == "migrations"):
                 continue
             for warning in checker(os.path.join(root, f)):
@@ -157,13 +163,13 @@ def run_pyflakes_for_package(package_name, extra_ignore=None):
             source = source_file.read()
         try:
             tree = compile(source, path, "exec", PyCF_ONLY_AST)
-        except (SyntaxError, IndentationError), value:
+        except (SyntaxError, IndentationError) as value:
             info = (path, value.lineno, value.args[0])
             yield "Invalid syntax in %s:%d: %s" % info
         else:
             result = Checker(tree, path)
             for warning in result.messages:
-                yield unicode(warning)
+                yield str(warning)
 
     args = (pyflakes_checker, package_name, extra_ignore)
     return _run_checker_for_package(*args)

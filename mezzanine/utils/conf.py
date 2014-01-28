@@ -1,9 +1,13 @@
+from __future__ import unicode_literals
 
 import os
 import sys
+from warnings import warn
 
 from django.conf import global_settings as defaults
 from django.template.loader import add_to_builtins
+
+from mezzanine.utils.timezone import get_best_local_timezone
 
 
 class SitesAllowedHosts(object):
@@ -44,11 +48,15 @@ def set_dynamic_settings(s):
     add_to_builtins("mezzanine.template.loader_tags")
 
     if not s.get("ALLOWED_HOSTS", []):
-        from warnings import warn
         warn("You haven't defined the ALLOWED_HOSTS settings, which "
              "Django 1.5 requires. Will fall back to the domains "
              "configured as sites.")
         s["ALLOWED_HOSTS"] = SitesAllowedHosts()
+
+    if s.get("TIME_ZONE", None) is None:
+        tz = get_best_local_timezone()
+        s["TIME_ZONE"] = tz
+        warn("TIME_ZONE setting is not set, using closest match: %s" % tz)
 
     # Define some settings based on management command being run.
     management_command = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -61,10 +69,15 @@ def set_dynamic_settings(s):
     # Change tuple settings to lists for easier manipulation.
     s.setdefault("AUTHENTICATION_BACKENDS", defaults.AUTHENTICATION_BACKENDS)
     s.setdefault("STATICFILES_FINDERS", defaults.STATICFILES_FINDERS)
-    tuple_list_settings = ("AUTHENTICATION_BACKENDS", "INSTALLED_APPS",
-                           "MIDDLEWARE_CLASSES", "STATICFILES_FINDERS")
-    for setting in tuple_list_settings:
-        s[setting] = list(s[setting])
+    tuple_list_settings = ["AUTHENTICATION_BACKENDS", "INSTALLED_APPS",
+                           "MIDDLEWARE_CLASSES", "STATICFILES_FINDERS"]
+    for setting in tuple_list_settings[:]:
+        if not isinstance(s[setting], list):
+            s[setting] = list(s[setting])
+        else:
+            # Setting is already a list, so we'll exclude it from
+            # the list of settings we'll revert back to tuples.
+            tuple_list_settings.remove(setting)
 
     # Set up cookie messaging if none defined.
     storage = "django.contrib.messages.storage.cookie.CookieStorage"
@@ -101,7 +114,7 @@ def set_dynamic_settings(s):
                     s["INSTALLED_APPS"].append(app)
     if "debug_toolbar" in s["INSTALLED_APPS"]:
         debug_mw = "debug_toolbar.middleware.DebugToolbarMiddleware"
-        prepend("MIDDLEWARE_CLASSES", debug_mw)
+        append("MIDDLEWARE_CLASSES", debug_mw)
     # If compressor installed, ensure it's configured and make
     # Mezzanine's settings available to its offline context,
     # since jQuery is configured via a setting.
@@ -139,6 +152,9 @@ def set_dynamic_settings(s):
     # Ensure admin is last in the app order so that admin templates
     # are loaded in the correct order.
     move("INSTALLED_APPS", "django.contrib.admin", len(s["INSTALLED_APPS"]))
+
+    # Ensure we have a test runner (removed in Django 1.6)
+    s.setdefault("TEST_RUNNER", "django.test.simple.DjangoTestSuiteRunner")
 
     # Add missing apps if existing apps depend on them.
     if "mezzanine.blog" in s["INSTALLED_APPS"]:

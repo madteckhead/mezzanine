@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 
 from django.contrib.syndication.views import Feed
 from django.core.urlresolvers import reverse
@@ -11,6 +12,7 @@ from mezzanine.generic.models import Keyword
 from mezzanine.pages.models import Page
 from mezzanine.conf import settings
 from mezzanine.utils.models import get_user_model
+
 
 User = get_user_model()
 
@@ -54,7 +56,7 @@ class PostsRSS(Feed):
         return self._description
 
     def link(self):
-        return reverse("blog_post_feed", kwargs={"format": "rss"})
+        return reverse("blog_post_list")
 
     def items(self):
         if not self._public:
@@ -105,6 +107,3 @@ class PostsAtom(PostsRSS):
 
     def subtitle(self):
         return self.description()
-
-    def link(self):
-        return reverse("blog_post_feed", kwargs={"format": "atom"})

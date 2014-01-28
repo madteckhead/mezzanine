@@ -1,15 +1,18 @@
+from __future__ import unicode_literals
 
+from django import get_version
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model, Field
 
 from mezzanine.utils.importing import import_dotted_path
-
+from future.utils import with_metaclass
+from distutils.version import StrictVersion
 
 # Backward compatibility with Django 1.5's "get_user_model".
-try:
+if StrictVersion(get_version()) >= StrictVersion('1.5'):
     from django.contrib.auth import get_user_model
-except ImportError:
+else:
     def get_user_model():
         from django.contrib.auth.models import User
         return User
@@ -134,11 +137,10 @@ class ModelMixinBase(type):
         return mixin_for
 
 
-class ModelMixin(object):
+class ModelMixin(with_metaclass(ModelMixinBase, object)):
     """
     Used as a subclass for mixin models that inject their behaviour onto
     models defined outside of a project. The subclass should define an
     inner ``Meta`` class with a ``mixin_for`` attribute containing the
     model that will be mixed into.
     """
-    __metaclass__ = ModelMixinBase

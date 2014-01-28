@@ -1,4 +1,5 @@
 # encoding: utf-8
+from __future__ import unicode_literals
 import datetime
 from south.db import db
 from south.v2 import DataMigration
@@ -53,7 +54,7 @@ class Migration(DataMigration):
                         assignment.save()
                     else:
                         uses_original = True
-                except Exception, e:
+                except Exception as e:
                     uses_original = True
 
             if not uses_original:

@@ -1,18 +1,27 @@
+from __future__ import unicode_literals
+from future.builtins import str
 
 from datetime import datetime, timedelta
+import re
+from time import timezone
+try:
+    from urllib.parse import quote
+except ImportError:     # Python 2
+    from urllib import quote
+
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.html import urlize
 from django.utils.timezone import get_default_timezone, make_aware
 from django.utils.translation import ugettext_lazy as _
+from requests_oauthlib import OAuth1
+import requests
+
 from mezzanine.conf import settings
 from mezzanine.twitter import QUERY_TYPE_CHOICES, QUERY_TYPE_USER, \
     QUERY_TYPE_LIST, QUERY_TYPE_SEARCH
 from mezzanine.twitter.managers import TweetManager
-from requests_oauthlib import OAuth1
-from time import timezone
-from urllib2 import quote
-import re
-import requests
+
 
 re_usernames = re.compile("@([0-9a-zA-Z+_]+)", re.IGNORECASE)
 re_hashtags = re.compile("#([0-9a-zA-Z+_]+)", re.IGNORECASE)
@@ -24,6 +33,7 @@ class TwitterQueryException(Exception):
     pass
 
 
+@python_2_unicode_compatible
 class Query(models.Model):
 
     type = models.CharField(_("Type"), choices=QUERY_TYPE_CHOICES,
@@ -36,7 +46,7 @@ class Query(models.Model):
         verbose_name_plural = _("Twitter queries")
         ordering = ("-id",)
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s: %s" % (self.get_type_display(), self.value)
 
     def run(self):
@@ -65,10 +75,21 @@ class Query(models.Model):
                          settings.TWITTER_ACCESS_TOKEN_KEY,
                          settings.TWITTER_ACCESS_TOKEN_SECRET)
         if not all(auth_settings):
-            raise TwitterQueryException("Twitter OAuth settings missing")
+            from mezzanine.conf import registry
+            if self.value == registry["TWITTER_DEFAULT_QUERY"]["default"]:
+                # These are some read-only keys and secrets we use
+                # for the default query (eg nothing has been configured)
+                auth_settings = (
+                    "KxZTRD3OBft4PP0iQW0aNQ",
+                    "sXpQRSDUVJ2AVPZTfh6MrJjHfOGcdK4wRb1WTGQ",
+                    "1368725588-ldWCsd54AJpG2xcB5nyTHyCeIC3RJcNVUAkB1OI",
+                    "r9u7qS18t8ad4Hu9XVqmCGxlIpzoCN3e1vx6LOSVgyw3R",
+                )
+            else:
+                raise TwitterQueryException("Twitter OAuth settings missing")
         try:
             tweets = requests.get(url, auth=OAuth1(*auth_settings)).json()
-        except Exception, e:
+        except Exception as e:
             raise TwitterQueryException("Error retrieving: %s" % e)
         try:
             raise TwitterQueryException(tweets["errors"][0]["message"])
@@ -136,7 +157,7 @@ class Tweet(models.Model):
         verbose_name_plural = _("Tweets")
         ordering = ("-created_at",)
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s: %s" % (self.user_name, self.text)
 
     def is_retweet(self):
